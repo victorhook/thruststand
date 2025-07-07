@@ -96,9 +96,9 @@ void loop()
         thrust = LoadCell.getData();
     }
 
-    Serial.write(0x0F);
-    Serial.write(throttle_us);
-    Serial.write(thrust);
+    //Serial.write(0x0F);
+    //Serial.write(throttle_us);
+    //Serial.write(thrust);
 
     next_update += 1000;//LOOP_PERIOD_MS;
 }
@@ -152,12 +152,14 @@ void send_dshot_raw_frame(const uint8_t* frame)
     TIM1->CCR1 = 0;
     TIM1->EGR |= TIM_EGR_UG;
 
-    Serial.printf("PWM %d -> %d: ", throttle_us, dshot);
-    for (int i = 0; i < DSHOT_FRAME_SIZE; i++)
-    {
-        Serial.printf("%d", frame[i] == 180);
-    }
-    Serial.print("\n");
+    //Serial.printf("PWM %d -> %d: ", throttle_us, dshot);
+    //for (int i = 0; i < DSHOT_FRAME_SIZE; i++)
+    //{
+    //    Serial.printf("%d", frame[i] == 180);
+    //}
+    uint32_t now = millis();
+    Serial.printf("%u, %u, %d\n", now, throttle_us, (int) thrust);
+    //Serial.print("\n");
 }
 
 void send_dshot_frame(const uint16_t throttle_us, const bool telemetry)
