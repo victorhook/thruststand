@@ -28,12 +28,14 @@ def set_motor_pwm(master: object, motor_nbr: int, pwm: int) -> None:
         motor_nbr,
         1,
         pwm,
-        1,
+        5,
         0, 0, 0
     )
 
 if __name__ == '__main__':
     args = parse_args()
+
+    print('')
 
     dryrun = args.dry
     motor_nbr = 2
@@ -43,7 +45,7 @@ if __name__ == '__main__':
             print('Must supply AP port "--ap"')
             sys.exit(0)
 
-        master = mavutil.mavlink_connection(args.port, baud=921600)
+        master = mavutil.mavlink_connection(args.ap, baud=921600)
         print(f'Waiting for heartbeat from AP..., using motor {motor_nbr}')
         master.wait_heartbeat()
 
@@ -52,13 +54,14 @@ if __name__ == '__main__':
     base_dir = Path(args.output)
     csv_filepath = base_dir.joinpath(csv_filename)
     print(f'Writing results to {csv_filepath}')
+    print('')
 
     if not base_dir.exists():
         base_dir.mkdir(parents=True)
 
 
     with open(csv_filepath, 'w') as f:
-        f.write('timestamp,pwm,thrust\n')
+        f.write('timestamp,pwm,thrust,thrust_raw\n')
 
         print(f'Connecting to port {args.port}')
         device = Device(f)
@@ -70,8 +73,9 @@ if __name__ == '__main__':
         pwm_min = 1000
         pwm_max = 2000
         pwm = pwm_min
-        inc_step = 5
-        delay_s = 20
+        inc_step = 1
+        delay_s = 0.02
+        hold_final_s = 3
 
         try:
             while pwm <= pwm_max:
@@ -87,9 +91,30 @@ if __name__ == '__main__':
 
                 print(f'[{latest.timestamp}] {latest.throttle:3}/{pwm_max:3} ({round(done):3}%) -> {latest.thrust}')
                 time.sleep(delay_s)
+
+            # Hold final for 3 sec
+            print(f'Holding final PWM for {hold_final_s}s')
+            time.sleep(hold_final_s)
+
+            downramp_dec_step = 10
+            downramp_dec_delay = 0.01
+            if pwm > pwm_max:
+                pwm = pwm_max
+            
+            print(f'Done, ramping down from {pwm} to {pwm_min}, steps of {downramp_dec_step}, delay {downramp_dec_delay}s')
+            
+            while pwm > pwm_min:
+                if not dryrun:
+                    set_motor_pwm(master, motor_nbr, pwm)
+                pwm -= downramp_dec_step
+                time.sleep(downramp_dec_delay)
         finally:
             for i in range(5):
                 device.set_throttle(1000)
                 if not dryrun:
                     set_motor_pwm(master, motor_nbr, pwm)
                 time.sleep(.05)
+
+    print('')
+    print('Done!')
+    print('')

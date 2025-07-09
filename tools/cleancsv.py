@@ -27,7 +27,7 @@ def main():
     result = df.groupby('pwm', as_index=False).mean()
 
     # Round for cleaner output (optional)
-    result['thrust'] = (-result['thrust']).round(2)
+    result['thrust'] = (result['thrust']).round(3)
 
     result_filtered = result[result['pwm'].isin(allowed_pwms)]
 

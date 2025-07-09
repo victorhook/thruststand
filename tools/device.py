@@ -17,10 +17,13 @@ class Data:
     timestamp: int
     throttle: int
     thrust: float
+    thrust_raw: float
 
 class Device:
 
     SYNC_BYTE = 0x42
+    CALIBRATION_WEIGHT_GRAMS = 490
+    CALIBRATION_THRUST_AT_MEASURED_WEIGHT = 220000
 
     def __init__(self, csv_file = None) -> None:
         self._rx = Queue()
@@ -40,6 +43,9 @@ class Device:
         Thread(target=self._rx_thread, name='Device RX', daemon=True).start()
         Thread(target=self._tx_thread, name='Device TX', daemon=True).start()
 
+    def reboot(self) -> None:
+        self._tx.put(f'reboot\n')
+
     def set_throttle(self, pwm: int) -> None:
         self._tx.put(f'{pwm}\n')
 
@@ -50,13 +56,15 @@ class Device:
 
             try:
                 data = self._serial.readline()
-                timestamp, throttle, thrust = data.decode('ascii').strip().replace(' ', '').split(',')
-                new_data = Data(timestamp, throttle, thrust)
+                timestamp, throttle, thrust_raw = data.decode('ascii').strip().replace(' ', '').split(',')
+                thrust = -1 * float(thrust_raw) * (self.CALIBRATION_WEIGHT_GRAMS / self.CALIBRATION_THRUST_AT_MEASURED_WEIGHT)
+                new_data = Data(timestamp, throttle, int(thrust), thrust_raw)
                 self._rx.put(new_data)
                 with self._lock:
                     self._latest_data = new_data
                 if self.csv_file:
-                    self.csv_file.write(f'{timestamp},{throttle},{thrust}\n')
+                    # Write thrust in kgf
+                    self.csv_file.write(f'{timestamp},{throttle},{(thrust/1000.0):.3f},{thrust_raw}\n')
             except Exception as e:
                 print(f'Error reading: {e}')
 
